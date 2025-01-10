@@ -1,19 +1,21 @@
 "use client";
-import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import { PublicKey, SystemProgram, Transaction , Commitment} from '@solana/web3.js';
 import { UploadImage } from "@/components/UploadImage";
 import { BACKEND_URL } from "@/utils";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
+import { log } from 'console';
 
 export const Upload = () => {
     const [images, setImages] = useState<string[]>([]);
     const [title, setTitle] = useState("");
     const [txSignature, setTxSignature] = useState("");
-    const { publicKey, sendTransaction } = useWallet();
+    const { publicKey, sendTransaction, signTransaction } = useWallet();
     const { connection } = useConnection();
     const router = useRouter();
+    
 
     async function onSubmit() {
         const response = await axios.post(`${BACKEND_URL}/v1/user/task`, {
@@ -31,6 +33,84 @@ export const Upload = () => {
         router.push(`/task/${response.data.id}`)
     }
 
+
+
+
+
+
+    // Try for Payment gateway
+    async function sendAndConfirmTransactionWithRetry(
+        connection: ReturnType<typeof useConnection>["connection"],
+        transaction: Transaction,
+        wallet: { publicKey: PublicKey | null; signTransaction?: (tx: Transaction) => Promise<Transaction> },
+        commitment: Commitment = "confirmed",
+        maxRetries: number = 3
+      ): Promise<string> {
+        let retries = 0;
+      
+        while (retries < maxRetries) {
+          try {
+            // Fetch a fresh blockhash before signing the transaction
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash(commitment);
+            transaction.recentBlockhash = blockhash;
+      
+            if (!wallet.publicKey) {
+              throw new Error("Wallet is not connected.");
+            }
+      
+            // Set feePayer
+            transaction.feePayer = wallet.publicKey;
+      
+            if (!wallet.signTransaction) {
+              throw new Error("Wallet does not support transaction signing.");
+            }
+      
+            console.log("Signing transaction...");
+            const signedTransaction = await wallet.signTransaction(transaction);
+      
+            console.log("Sending transaction...");
+            const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+              skipPreflight: false, // Set to false to validate before sending
+            });
+      
+            console.log("Confirming transaction...");
+            const confirmation = await connection.confirmTransaction(
+              { signature, blockhash, lastValidBlockHeight },
+              commitment
+            );
+      
+            console.log("Transaction successful:", signature, confirmation);
+            return signature;
+          } catch (error: unknown) {
+            if (error instanceof Error) {
+              console.error(`Attempt ${retries + 1} failed:`, error.message);
+              if (error.message.includes("block height exceeded")) {
+                console.log("Refreshing blockhash and retrying...");
+              }
+            }
+      
+            retries++;
+      
+            if (retries >= maxRetries) {
+              throw new Error("Transaction failed after maximum retries.");
+            }
+          }
+        }
+      
+        throw new Error("Transaction failed after retries.");
+      }
+
+
+
+
+
+
+
+
+
+    //end of try for peyment gateway
+
+
     async function makePayment() {
 
         const transaction = new Transaction().add(
@@ -42,15 +122,38 @@ export const Upload = () => {
             })
         );
 
-        const {
-            context: { slot: minContextSlot },
-            value: { blockhash, lastValidBlockHeight }
-        } = await connection.getLatestBlockhashAndContext();
+        try{
+            const signature = await sendAndConfirmTransactionWithRetry(
+                connection,
+                transaction,
+                { publicKey,signTransaction },
+                "confirmed",
+                3
+              );
 
-        const signature = await sendTransaction(transaction, connection, { minContextSlot });
+              
+              setTxSignature(signature);
+              console.log("Valueof signature:" , signature);
+              
+        
+              console.log("Transaction confirmed:", signature);
+            } catch (error : unknown) {
+                if (error instanceof Error) {
+                    console.error("Transaction failed:", error.message, error.stack);
+                 } else {
+                    console.error("An unknown error occurred:", error);
+                 }
+            }
 
-        await connection.confirmTransaction({ blockhash, lastValidBlockHeight, signature });
-        setTxSignature(signature);
+        // const {
+        //     context: { slot: minContextSlot },
+        //     value: { blockhash, lastValidBlockHeight }
+        // } = await connection.getLatestBlockhashAndContext();
+
+        //const signature = await sendTransaction(transaction, connection, { minContextSlot });
+
+        //await connection.confirmTransaction({ blockhash, lastValidBlockHeight, signature },"processed");
+        //setTxSignature(signature);
     }
 
     return <div className="flex justify-center">
