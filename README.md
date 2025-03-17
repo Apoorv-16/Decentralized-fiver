@@ -11,6 +11,8 @@ Uses Phantom wallet to create data labelling tasks open to everyont to take it u
 **Database:** Postgres
 
 # Features
+### Code Flow
+![](https://github.com/Apoorv-16/Decentralized-fiver/blob/main/user-frontend/public/Code-Flow.jpg)
 ### Authenticaton
 ![](https://github.com/Apoorv-16/Decentralized-fiver/blob/main/user-frontend/public/User%20Login%20via%20Phantom%20wallet.jpg)
 ![](https://github.com/Apoorv-16/Decentralized-fiver/blob/main/user-frontend/public/User%20Sigin%20with%20Phantom%20wallet%202.jpg)
