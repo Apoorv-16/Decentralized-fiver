@@ -10,6 +10,9 @@ Uses Phantom wallet to create data labelling tasks open to everyont to take it u
 
 **Database:** Postgres
 
+## Code Flow
+-[@Code_Flow](https://app.eraser.io/workspace/98FO4J2TotJkiTQyDF5B?origin=share)
+
 # Features
 ### Code Flow
 ![](https://github.com/Apoorv-16/Decentralized-fiver/blob/main/user-frontend/public/Code-Flow.jpg)
